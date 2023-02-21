@@ -67,11 +67,7 @@ void add(Signal s)
 
 void load()
 {
-    var s = Signal.WhiteNoise();
-    add(s);
-    add(s.Fourrier());
-
-    var r = s.Integral();
-    add(r);
-    add(r.Fourrier());
+    // var s = Signal.Cos();
+    // add(s);
+    // add(s.Fourrier());
 }
