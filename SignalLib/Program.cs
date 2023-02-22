@@ -6,12 +6,13 @@ int N = 65536;
 DateTime dt;
 TimeSpan span;
 
+float[] signal = new float[N];
+float[] isignal = new float[N];
+signal[1] = 5;
+
 dt = DateTime.Now;
 for (int t = 0; t < 100; t++)
 {
-    float[] signal = new float[N];
-    float[] isignal = new float[N];
-    signal[1] = 5;
     (signal, isignal) = FourrierTransform.FFT(signal, isignal);
 }
 span = DateTime.Now - dt;
