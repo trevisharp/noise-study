@@ -1,17 +1,33 @@
 ﻿using System;
 using SignalLib;
 
-float[] signal = new float[32];
-float[] isignal = new float[32];
+int N = 64;
 
-for (int i = 0; i < 32; i++)
-    signal[i] = MathF.Cos(MathF.Tau * i / 8);
+float[] signal = new float[N];
+float[] isignal = new float[N];
+signal[1] = 5;
+FourrierTransform.FFT(signal, isignal);
 
-(signal, isignal) = FourrierTransform.FFT(signal, isignal);
-
+Console.WriteLine("FFT: ");
 foreach (var x in signal)
 {
-    var rounded = MathF.Round(x, 2);
+    var rounded = MathF.Round(x, 1);
+    if (rounded == 0)
+        rounded = 0f;
+    var str = rounded.ToString().Replace(',','.');
+    Console.Write($"{str}, ");
+}
+Console.WriteLine();
+
+signal = new float[N];
+isignal = new float[N];
+signal[1] = 5;
+(signal, isignal) = FourrierTransform.DFT(signal, isignal);
+
+Console.WriteLine("DFT: ");
+foreach (var x in signal)
+{
+    var rounded = MathF.Round(x, 1);
     if (rounded == 0)
         rounded = 0f;
     var str = rounded.ToString().Replace(',','.');

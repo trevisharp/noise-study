@@ -13,8 +13,8 @@ public static class FourrierTransform
     {
         if (reSig.Length != imSig.Length)
             throw new Exception("Real and Imaginary Signal have different sizes");
+        
         int N = reSig.Length;
-
         float[] ouReSig = new float[N];
         float[] ouImSig = new float[N];
 
@@ -24,11 +24,11 @@ public static class FourrierTransform
             float im = 0f;
             for (int n = 0; n < N; n++)
             {
-                re += reSig[n] * MathF.Cos(MathF.Tau * k * n / N)
-                    + imSig[n] * MathF.Sin(MathF.Tau * k * n / N);
-
-                im += imSig[n] * MathF.Cos(MathF.Tau * k * n / N)
-                    - reSig[n] * MathF.Sin(MathF.Tau * k * n / N);
+                var param = MathF.Tau * k * n / N;
+                var cos = MathF.Cos(param);
+                var sin = MathF.Sin(param);
+                re += reSig[n] * cos + imSig[n] * sin;
+                im += imSig[n] * cos - reSig[n] * sin;
             }
             ouReSig[k] = re;  
             ouImSig[k] = im;
@@ -56,9 +56,9 @@ public static class FourrierTransform
         float[] imAux
     )
     {
-        float[] temp;
         int N = reBuffer.Length;
         int sectionCount = N / dftThreshold;
+        int div = dftThreshold;
 
         for (int i = 0; i < N; i++)
         {
@@ -70,14 +70,39 @@ public static class FourrierTransform
         for (int i = 0; i < sectionCount; i++)
         {
             dft(reAux, imAux, reBuffer, imBuffer, 
-                dftThreshold * i, dftThreshold, N);
+                i * dftThreshold, dftThreshold, dftThreshold);
         }
 
+        float[] temp;
         while (sectionCount > 1)
         {
+            for (int s = 0; s < sectionCount; s += 2)
+            {
+                int start = div * s;
+                int end = start + div;
+                for (int i = start, j = end, k = 0; i < end; i++, j++, k++)
+                {
+                    var param = MathF.Tau * k / (2 * div);
+                    var cos = MathF.Cos(param);
+                    var sin = MathF.Sin(param);
+
+                    float W = reBuffer[j] * cos + imBuffer[j] * sin;
+                    reAux[i] = reBuffer[i] + W;
+                    reAux[j] = reBuffer[i] - W;
+
+                    W = imBuffer[j] * cos - reBuffer[j] * sin;
+                    imAux[i] = imBuffer[i] + W;
+                    imAux[j] = imBuffer[i] - W;
+                }
+            }
+
+            div *= 2;
+            sectionCount /= 2;
+
             temp = reBuffer;
             reBuffer = reAux;
             reAux = temp;
+            
             temp = imBuffer;
             imBuffer = imAux;
             imAux = temp;
@@ -100,8 +125,8 @@ public static class FourrierTransform
                 var param = MathF.Tau * k * n / N;
                 var cos = MathF.Cos(param);
                 var sin = MathF.Sin(param);
-                reSum += re[n] * cos + im[n] * sin;
-                imSum += im[n] * cos - re[n] * sin;
+                reSum += re[i] * cos + im[i] * sin;
+                imSum += im[i] * cos - re[i] * sin;
             }
             oRe[j] = reSum;
             oIm[j] = imSum;
