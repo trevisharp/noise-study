@@ -1,35 +1,43 @@
 ﻿using System;
 using SignalLib;
 
-int N = 4096;
+int N = 256;
 
-float[] signal = new float[N];
-float[] isignal = new float[N];
-signal[1] = 5;
-(signal, isignal) = FourrierTransform.FFT(signal, isignal);
-
-Console.WriteLine("FFT: ");
-foreach (var x in signal)
-{
-    var rounded = MathF.Round(x, 2);
-    if (rounded == 0)
-        rounded = 0f;
-    var str = rounded.ToString().Replace(',','.');
-    Console.Write($"{str}, ");
-}
+testDFT();
 Console.WriteLine();
+Console.WriteLine();
+testFFT();
 
-signal = new float[N];
-isignal = new float[N];
-signal[1] = 5;
-(signal, isignal) = FourrierTransform.DFT(signal, isignal);
-
-Console.WriteLine("DFT: ");
-foreach (var x in signal)
+void testFFT()
 {
-    var rounded = MathF.Round(x, 2);
-    if (rounded == 0)
-        rounded = 0f;
-    var str = rounded.ToString().Replace(',','.');
-    Console.Write($"{str}, ");
+    float[] signal = new float[N];
+    float[] isignal = new float[N];
+    signal[1] = 5;
+    (signal, isignal) = FourrierTransform.FFT(signal, isignal);
+
+    foreach (var x in signal)
+    {
+        var rounded = MathF.Round(x, 2);
+        if (rounded == 0)
+            rounded = 0f;
+        var str = rounded.ToString().Replace(',','.');
+        Console.Write($"{str}, ");
+    }
+}
+
+void testDFT()
+{
+    float[] signal = new float[N];
+    float[] isignal = new float[N];
+    signal[1] = 5;
+    (signal, isignal) = FourrierTransform.DFT(signal, isignal);
+
+    foreach (var x in signal)
+    {
+        var rounded = MathF.Round(x, 2);
+        if (rounded == 0)
+            rounded = 0f;
+        var str = rounded.ToString().Replace(',','.');
+        Console.Write($"{str}, ");
+    }
 }

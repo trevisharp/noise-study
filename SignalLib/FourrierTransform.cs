@@ -1,4 +1,5 @@
 using System;
+using System.Threading.Tasks;
 
 namespace SignalLib;
 
@@ -34,14 +35,19 @@ public static class FourrierTransform
 
         return (ouReSig, ouImSig);
     }
-
+    
+    static float[] reAux = null;
+    static float[] imAux = null;
     public static (float[] rsignal, float[] isignal) FFT(
         float[] rsignal, float[] isignal
     )
     {
-        float[] reAux = new float[rsignal.Length];
-        float[] imAux = new float[isignal.Length];
-
+        if (reAux == null || reAux.Length < rsignal.Length)
+        {
+            reAux = new float[rsignal.Length];
+            imAux = new float[rsignal.Length];
+        }
+        
         return fft(rsignal, isignal, reAux, imAux);
     }
 
@@ -68,11 +74,11 @@ public static class FourrierTransform
             imAux[i] = imBuffer[index];
         }
 
-        for (int i = 0; i < sectionCount; i++)
+        Parallel.For(0, sectionCount, i =>
         {
             dft(reAux, imAux, reBuffer, imBuffer, 
                 i * dftThreshold, dftThreshold, dftThreshold);
-        }
+        });
 
         float[] temp;
         while (sectionCount > 1)
@@ -149,12 +155,7 @@ public static class FourrierTransform
         return coefs;
     }
 
-    private static void recEvenOddSplit(
-        int[] input, 
-        int[] output, 
-        int offset, 
-        int size
-    )
+    private static void recEvenOddSplit(int[] input, int[] output, int offset, int size)
     {
         if (size == 1)
             return;
@@ -164,22 +165,17 @@ public static class FourrierTransform
         recEvenOddSplit(input, output, offset + size / 2, size / 2);
     }
 
-    private static void evenOddSplit(
-        int[] data, 
-        int[] buffer, 
-        int offset, 
-        int size
-    )
+    private static void evenOddSplit(int[] data, int[] buff, int offset, int size)
     {
         int end = offset + size;
         for (int i = offset, j = offset, k = offset + size / 2; i < end; i += 2, j++, k++)
         {
-            buffer[j] = data[i];
-            buffer[k] = data[i + 1];
+            buff[j] = data[i];
+            buff[k] = data[i + 1];
         }
 
         end = offset + size;
         for (int i = offset; i < end; i++)
-            data[i] = buffer[i];
+            data[i] = buff[i];
     }
 }
