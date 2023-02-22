@@ -91,7 +91,7 @@ public static class FourrierTransform
                 {
                     var param = MathF.Tau * k / (2 * div);
                     var cos = MathF.Cos(param);
-                    var sin = MathF.Sin(param);
+                    var sin = MathF.Sqrt(1 - cos * cos);
 
                     float W = reBuffer[j] * cos + imBuffer[j] * sin;
                     reAux[i] = reBuffer[i] + W;
@@ -134,7 +134,7 @@ public static class FourrierTransform
             {
                 var param = MathF.Tau * k * n / N;
                 var cos = MathF.Cos(param);
-                var sin = MathF.Sin(param);
+                var sin = MathF.Sqrt(1 - cos * cos);
                 reSum += re[i] * cos + im[i] * sin;
                 imSum += im[i] * cos - re[i] * sin;
             }

@@ -1,12 +1,21 @@
 ﻿using System;
 using SignalLib;
 
-int N = 256;
+int N = 16384;
 
-testDFT();
-Console.WriteLine();
-Console.WriteLine();
-testFFT();
+DateTime dt;
+TimeSpan span;
+
+dt = DateTime.Now;
+for (int t = 0; t < 100; t++)
+{
+    float[] signal = new float[N];
+    float[] isignal = new float[N];
+    signal[1] = 5;
+    (signal, isignal) = FourrierTransform.FFT(signal, isignal);
+}
+span = DateTime.Now - dt;
+Console.WriteLine(span.TotalMilliseconds / 100);
 
 void testFFT()
 {
