@@ -1,17 +1,17 @@
 ﻿using System;
 using SignalLib;
 
-int N = 64;
+int N = 4096;
 
 float[] signal = new float[N];
 float[] isignal = new float[N];
 signal[1] = 5;
-FourrierTransform.FFT(signal, isignal);
+(signal, isignal) = FourrierTransform.FFT(signal, isignal);
 
 Console.WriteLine("FFT: ");
 foreach (var x in signal)
 {
-    var rounded = MathF.Round(x, 1);
+    var rounded = MathF.Round(x, 2);
     if (rounded == 0)
         rounded = 0f;
     var str = rounded.ToString().Replace(',','.');
@@ -27,7 +27,7 @@ signal[1] = 5;
 Console.WriteLine("DFT: ");
 foreach (var x in signal)
 {
-    var rounded = MathF.Round(x, 1);
+    var rounded = MathF.Round(x, 2);
     if (rounded == 0)
         rounded = 0f;
     var str = rounded.ToString().Replace(',','.');

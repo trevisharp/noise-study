@@ -1,6 +1,4 @@
 using System;
-using System.Linq;
-using System.Collections.Generic;
 
 namespace SignalLib;
 
@@ -44,12 +42,10 @@ public static class FourrierTransform
         float[] reAux = new float[rsignal.Length];
         float[] imAux = new float[isignal.Length];
 
-        fft(rsignal, isignal, reAux, imAux);
-
-        return (rsignal, isignal);
+        return fft(rsignal, isignal, reAux, imAux);
     }
 
-    private static void fft(
+    private static (float[], float[]) fft(
         float[] reBuffer,
         float[] reAux,
         float[] imBuffer,
@@ -59,12 +55,17 @@ public static class FourrierTransform
         int N = reBuffer.Length;
         int sectionCount = N / dftThreshold;
         int div = dftThreshold;
+        int swapCount = 0;
+
+        int[] coefs = getFFTCoefs(N, div);
 
         for (int i = 0; i < N; i++)
         {
-            int index = dftThreshold * (i % sectionCount) + (i / sectionCount);
-            reAux[index] = reBuffer[i];
-            imAux[index] = imBuffer[i];
+            int sec = (i / dftThreshold);
+            int idSec = (i % dftThreshold);
+            int index = sectionCount * idSec + coefs[sec];
+            reAux[i] = reBuffer[index];
+            imAux[i] = imBuffer[index];
         }
 
         for (int i = 0; i < sectionCount; i++)
@@ -98,6 +99,7 @@ public static class FourrierTransform
 
             div *= 2;
             sectionCount /= 2;
+            swapCount++;
 
             temp = reBuffer;
             reBuffer = reAux;
@@ -106,7 +108,9 @@ public static class FourrierTransform
             temp = imBuffer;
             imBuffer = imAux;
             imAux = temp;
-        }   
+        }
+
+        return (reBuffer, imBuffer);
     }
 
     private static void dft(
@@ -131,5 +135,51 @@ public static class FourrierTransform
             oRe[j] = reSum;
             oIm[j] = imSum;
         }
+    }
+
+    private static int[] getFFTCoefs(int N, int div)
+    {
+        int size = N / div;
+        int[] coefs = new int[size];
+        int[] buffer = new int[size];
+        for (int i = 0; i < size; i++)
+            coefs[i] = i;
+        
+        recEvenOddSplit(coefs, buffer, 0, size);
+        return coefs;
+    }
+
+    private static void recEvenOddSplit(
+        int[] input, 
+        int[] output, 
+        int offset, 
+        int size
+    )
+    {
+        if (size == 1)
+            return;
+        
+        evenOddSplit(input, output, offset, size);
+        recEvenOddSplit(input, output, offset, size / 2);
+        recEvenOddSplit(input, output, offset + size / 2, size / 2);
+    }
+
+    private static void evenOddSplit(
+        int[] data, 
+        int[] buffer, 
+        int offset, 
+        int size
+    )
+    {
+        int end = offset + size;
+        for (int i = offset, j = offset, k = offset + size / 2; i < end; i += 2, j++, k++)
+        {
+            buffer[j] = data[i];
+            buffer[k] = data[i + 1];
+        }
+
+        end = offset + size;
+        for (int i = offset; i < end; i++)
+            data[i] = buffer[i];
     }
 }
