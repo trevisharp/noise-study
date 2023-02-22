@@ -1,7 +1,7 @@
 ﻿using System;
 using SignalLib;
 
-int N = 16384;
+int N = 65536;
 
 DateTime dt;
 TimeSpan span;

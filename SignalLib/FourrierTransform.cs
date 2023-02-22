@@ -6,6 +6,8 @@ namespace SignalLib;
 public static class FourrierTransform
 {
     private const int dftThreshold = 32;
+    private static float[] reAux = null;
+    private static float[] imAux = null;
 
     public static (float[] rsignal, float[] isignal) DFT(
         float[] reSig, float[] imSig)
@@ -36,8 +38,6 @@ public static class FourrierTransform
         return (ouReSig, ouImSig);
     }
     
-    static float[] reAux = null;
-    static float[] imAux = null;
     public static (float[] rsignal, float[] isignal) FFT(
         float[] rsignal, float[] isignal
     )
