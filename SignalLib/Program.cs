@@ -11,12 +11,12 @@ float[] isignal = new float[N];
 signal[1] = 5;
 
 dt = DateTime.Now;
-for (int t = 0; t < 100; t++)
+for (int t = 0; t < 5000; t++)
 {
     (signal, isignal) = FourrierTransform.FFT(signal, isignal);
 }
 span = DateTime.Now - dt;
-Console.WriteLine(span.TotalMilliseconds / 100);
+Console.WriteLine(span.TotalMilliseconds / 5000);
 
 void testFFT()
 {
