@@ -36,23 +36,61 @@ internal static class FourrierTransform
                 re += reSig[n] * cos + imSig[n] * sin;
                 im += imSig[n] * cos - reSig[n] * sin;
             }
-            ouReSig[k] = re;  
+            ouReSig[k] = re; 
             ouImSig[k] = im;
         }
 
         return (ouReSig, ouImSig);
     }
-    
-    internal static (float[] rsingal, float[] isingal) RFFT(float[] signal)
+
+        internal static (float[] rsignal, float[] isignal) IDFT(
+        float[] reSig, float[] imSig)
     {
-        throw new NotImplementedException();
+        if (reSig.Length != imSig.Length)
+            throw new Exception("Real and Imaginary Signal have different sizes");
+        
+        int N = reSig.Length;
+        float[] ouReSig = new float[N];
+        float[] ouImSig = new float[N];
+
+        for (int k = 0; k < N; k++)
+        {
+            float re = 0f;
+            float im = 0f;
+            for (int n = 0; n < N; n++)
+            {
+                var param = MathF.Tau * k * n / N;
+                var cos = MathF.Cos(param);
+                var sin = MathF.Sin(param);
+                re += reSig[n] * cos - imSig[n] * sin;
+                im += imSig[n] * cos + reSig[n] * sin;
+            }
+            ouReSig[k] = re / N;  
+            ouImSig[k] = im / N;
+        }
+
+        return (ouReSig, ouImSig);
     }
-    internal static (float[] rsingal, float[] isingal) IFFT(float[] rsignal, float[] isignal)
+    
+    internal static float[] RFFT(float[] signal)
     {
         throw new NotImplementedException();
     }
 
-    internal static (float[] rsignal, float[] isignal) FFT(float[] rsignal, float[] isignal)
+    internal static void IFFT(float[] rsignal, float[] isignal)
+    {
+        if (rsignal.Length != isignal.Length)
+            throw new Exception("Real and Imaginary Signal must have the same size.");
+        
+        if (!testPowerOfTwo(rsignal.Length))
+            throw new Exception("Signals must have a power size of 2.");
+            
+        initAuxBuffers(rsignal.Length);
+
+        ifft(rsignal, reAux, isignal, imAux);
+    }
+
+    internal static void FFT(float[] rsignal, float[] isignal)
     {
         if (rsignal.Length != isignal.Length)
             throw new Exception("Real and Imaginary Signal must have the same size.");
@@ -62,7 +100,7 @@ internal static class FourrierTransform
 
         initAuxBuffers(rsignal.Length);
 
-        return fft(rsignal, reAux, isignal, imAux);
+        fft(rsignal, reAux, isignal, imAux);
     }
 
     private static bool testPowerOfTwo(int N)
@@ -98,7 +136,7 @@ internal static class FourrierTransform
         imAux = ArrayPool<float>.Shared.Rent(size);
     }
 
-    private static (float[], float[]) fft(
+    private static void ifft(
         float[] reBuffer,
         float[] reAux,
         float[] imBuffer,
@@ -111,14 +149,43 @@ internal static class FourrierTransform
         evenOddFragmentation(N, dftThreshold, sectionCount, reBuffer, imBuffer, reAux, imAux);
         
         var cosBuffer = getCosBuffer(dftThreshold);
-        var sinBuffer = getSinBuffer(cosBuffer);
+        var sinBuffer = getSinBuffer(dftThreshold);
+
+        fracIDFT(reAux, imAux, reBuffer, imBuffer, cosBuffer, sinBuffer, sectionCount);
+
+        mergeIDFTresults(sectionCount, dftThreshold, reBuffer, imBuffer, reAux, imAux);
+
+        normalize(reBuffer);
+        normalize(imBuffer);
+    }
+
+    private static void normalize(float[] data)
+    {
+        int N = data.Length;
+        for (int i = 0; i < data.Length; i++)
+            data[i] = data[i] / N;
+    }
+
+    private static void fft(
+        float[] reBuffer,
+        float[] reAux,
+        float[] imBuffer,
+        float[] imAux
+    )
+    {
+        int N = reBuffer.Length;
+        int sectionCount = N / dftThreshold;
+
+        var cosBuffer = getCosBuffer(dftThreshold);
+        var sinBuffer = getSinBuffer(dftThreshold);
+
+        evenOddFragmentation(N, dftThreshold, sectionCount, reBuffer, imBuffer, reAux, imAux);
 
         fracDFT(reAux, imAux, reBuffer, imBuffer, cosBuffer, sinBuffer, sectionCount);
 
         mergeDFTresults(sectionCount, dftThreshold, reBuffer, imBuffer, reAux, imAux);
-
-        return (reBuffer, imBuffer);
     }
+
     private static void evenOddFragmentation(
         int N, int division, int sectionCount,
         float[] reBuffer, float[] imBuffer,
@@ -136,19 +203,47 @@ internal static class FourrierTransform
         }
     }
 
+    private static void fracIDFT(
+        float[] reAux, float[] imAux,
+        float[] reBuffer, float[] imBuffer,
+        float[] cosBuffer, float[] sinBuffer,
+        int sectionCount)
+    {
+        if (sectionCount == 1)
+            slowIDFT(
+                reAux, imAux, reBuffer, imBuffer,
+                cosBuffer, sinBuffer, 0, dftThreshold
+            );
+        else if (Environment.ProcessorCount == 1 || sectionCount == 2)
+            sequentialFracIDFT(
+                reAux, imAux, reBuffer, imBuffer, 
+                cosBuffer, sinBuffer, sectionCount
+            );
+        else
+            parallelFracIDFT(
+                reAux, imAux, reBuffer, imBuffer, 
+                cosBuffer, sinBuffer, sectionCount
+            );
+    }
+
     private static void fracDFT(
         float[] reAux, float[] imAux,
         float[] reBuffer, float[] imBuffer,
         float[] cosBuffer, float[] sinBuffer,
         int sectionCount)
     {
-        if (Environment.ProcessorCount > 1)
-            parallelFracDFT(
+        if (sectionCount == 1)
+            slowDFT(
+                reAux, imAux, reBuffer, imBuffer,
+                cosBuffer, sinBuffer, 0, dftThreshold
+            );
+        else if (Environment.ProcessorCount == 1 || sectionCount == 2)
+            sequentialFracDFT(
                 reAux, imAux, reBuffer, imBuffer, 
                 cosBuffer, sinBuffer, sectionCount
             );
         else
-            sequentialFracDFT(
+            parallelFracDFT(
                 reAux, imAux, reBuffer, imBuffer, 
                 cosBuffer, sinBuffer, sectionCount
             );
@@ -186,6 +281,38 @@ internal static class FourrierTransform
         });
     }
 
+    private static void sequentialFracIDFT(
+        float[] reAux, float[] imAux,
+        float[] reBuffer, float[] imBuffer,
+        float[] cosBuffer, float[] sinBuffer,
+        int sectionCount)
+    {
+        for (int i = 0; i < sectionCount; i++)
+        {
+            idft(
+                reAux, imAux, reBuffer, imBuffer, 
+                cosBuffer, sinBuffer,
+                i * dftThreshold, dftThreshold
+            );
+        }
+    }
+
+    private static void parallelFracIDFT(
+        float[] reAux, float[] imAux,
+        float[] reBuffer, float[] imBuffer,
+        float[] cosBuffer, float[] sinBuffer,
+        int sectionCount)
+    {
+        Parallel.For(0, sectionCount, i =>
+        {
+            idft(
+                reAux, imAux, reBuffer, imBuffer, 
+                cosBuffer, sinBuffer,
+                i * dftThreshold, dftThreshold
+            );
+        });
+    }
+
     private static unsafe void dft(
         float[] re, float[] im,
         float[] oRe, float[] oIm,
@@ -205,6 +332,27 @@ internal static class FourrierTransform
             sse3DFT(re, im, oRe, oIm, cosBuffer, sinBuffer, offset, N);
         else
             slowDFT(re, im, oRe, oIm, cosBuffer, sinBuffer, offset, N);
+    }
+
+    private static unsafe void idft(
+        float[] re, float[] im,
+        float[] oRe, float[] oIm,
+        float[] cosBuffer, float[] sinBuffer,
+        int offset, int N
+    )
+    {
+        if (AdvSimd.IsSupported)
+            smidIDFT(re, im, oRe, oIm, cosBuffer, sinBuffer, offset, N);
+        else if (Sse42.IsSupported)
+            sse42IDFT(re, im, oRe, oIm, cosBuffer, sinBuffer, offset, N);
+        else if (Sse41.IsSupported)
+            sse41IDFT(re, im, oRe, oIm, cosBuffer, sinBuffer, offset, N);
+        else if (Avx2.IsSupported)
+            avxIDFT(re, im, oRe, oIm, cosBuffer, sinBuffer, offset, N);
+        else if (Sse3.IsSupported)
+            sse3IDFT(re, im, oRe, oIm, cosBuffer, sinBuffer, offset, N);
+        else
+            slowIDFT(re, im, oRe, oIm, cosBuffer, sinBuffer, offset, N);
     }
 
     private static unsafe void slowDFT(
@@ -511,6 +659,310 @@ internal static class FourrierTransform
         }
     }
 
+    private static unsafe void slowIDFT(
+        float[] re, float[] im,
+        float[] oRe, float[] oIm,
+        float[] cosBuffer, float[] sinBuffer,
+        int offset, int N
+    )
+    {
+        fixed (float* 
+            rep = re, imp = im, 
+            orep = oRe, oimp = oIm,
+            cosp = cosBuffer, sinp = sinBuffer
+        )
+        {
+            float* tcosp = cosp, tsinp = sinp;
+            float* torep = orep + offset, toimp = oimp + offset;
+            float* endTorep = torep + N;
+
+            for (; torep < endTorep; torep++, toimp++)
+            {
+                float reSum = 0f;
+                float imSum = 0f;
+                float* trep = rep + offset, timp = imp + offset;
+                float* endTrep = trep + N;
+
+                for (; trep < endTrep; trep++, timp++, tcosp++, tsinp++)
+                {
+                    var cos = *tcosp;
+                    var sin = *tsinp;
+
+                    var crrRe = *trep;
+                    var crrIm = *timp;
+                    reSum += crrRe * cos - crrIm * sin;
+                    imSum += crrIm * cos + crrRe * sin;
+                }
+                *torep = reSum;
+                *toimp = imSum;
+            }
+        }
+    }
+
+    private static unsafe void sse42IDFT(
+        float[] re, float[] im,
+        float[] oRe, float[] oIm,
+        float[] cosBuffer, float[] sinBuffer,
+        int offset, int N
+    )
+    {
+        fixed (float* 
+            rep = re, imp = im, 
+            orep = oRe, oimp = oIm,
+            cosp = cosBuffer, sinp = sinBuffer
+        )
+        {
+            float* tcosp = cosp, tsinp = sinp;
+            float* torep = orep + offset, toimp = oimp + offset;
+            float* endTorep = torep + N;
+            float sum = 0;
+            float* sumPointer = &sum;
+
+            for (; torep < endTorep; torep++, toimp++)
+            {
+                float reSum = 0f;
+                float imSum = 0f;
+                float* trep = rep + offset, timp = imp + offset;
+                float* endTrep = trep + N;
+
+                for (; trep < endTrep; tcosp += 4, tsinp += 4, trep += 4, timp += 4)
+                {
+                    var cos = Sse42.LoadVector128(tcosp);
+                    var sin = Sse42.LoadVector128(tsinp);
+                    var rev = Sse42.LoadVector128(trep);
+                    var imv = Sse42.LoadVector128(timp);
+
+                    var m1 = Sse42.Multiply(cos, rev);
+                    var m2 = Sse42.Multiply(sin, imv);
+                    var m3 = Sse42.Subtract(m1, m2);
+
+                    Sse42.StoreScalar(sumPointer, m3);
+                    reSum += sum;
+
+                    m1 = Sse42.Multiply(imv, cos);
+                    m2 = Sse42.Multiply(rev, sin);
+                    m3 = Sse42.Add(m1, m2);
+
+                    Sse42.StoreScalar(sumPointer, m3);
+                    imSum += sum;
+                }
+                *torep = reSum;
+                *toimp = imSum;
+            }
+        }
+    }
+
+    private static unsafe void sse41IDFT(
+        float[] re, float[] im,
+        float[] oRe, float[] oIm,
+        float[] cosBuffer, float[] sinBuffer,
+        int offset, int N
+    )
+    {
+        fixed (float* 
+            rep = re, imp = im, 
+            orep = oRe, oimp = oIm,
+            cosp = cosBuffer, sinp = sinBuffer
+        )
+        {
+            float* tcosp = cosp, tsinp = sinp;
+            float* torep = orep + offset, toimp = oimp + offset;
+            float* endTorep = torep + N;
+            float sum = 0;
+            float* sumPointer = &sum;
+
+            for (; torep < endTorep; torep++, toimp++)
+            {
+                float reSum = 0f;
+                float imSum = 0f;
+                float* trep = rep + offset, timp = imp + offset;
+                float* endTrep = trep + N;
+
+                for (; trep < endTrep; tcosp += 4, tsinp += 4, trep += 4, timp += 4)
+                {
+                    var cos = Sse41.LoadVector128(tcosp);
+                    var sin = Sse41.LoadVector128(tsinp);
+                    var rev = Sse41.LoadVector128(trep);
+                    var imv = Sse41.LoadVector128(timp);
+
+                    var m1 = Sse41.Multiply(cos, rev);
+                    var m2 = Sse41.Multiply(sin, imv);
+                    var m3 = Sse41.Subtract(m1, m2);
+
+                    Sse41.StoreScalar(sumPointer, m3);
+                    reSum += sum;
+
+                    m1 = Sse41.Multiply(imv, cos);
+                    m2 = Sse41.Multiply(rev, sin);
+                    m3 = Sse41.Add(m1, m2);
+
+                    Sse41.StoreScalar(sumPointer, m3);
+                    imSum += sum;
+                }
+                *torep = reSum;
+                *toimp = imSum;
+            }
+        }
+    }
+
+    private static unsafe void sse3IDFT(
+        float[] re, float[] im,
+        float[] oRe, float[] oIm,
+        float[] cosBuffer, float[] sinBuffer,
+        int offset, int N
+    )
+    {
+        fixed (float* 
+            rep = re, imp = im, 
+            orep = oRe, oimp = oIm,
+            cosp = cosBuffer, sinp = sinBuffer
+        )
+        {
+            float* tcosp = cosp, tsinp = sinp;
+            float* torep = orep + offset, toimp = oimp + offset;
+            float* endTorep = torep + N;
+            float sum = 0;
+            float* sumPointer = &sum;
+
+            for (; torep < endTorep; torep++, toimp++)
+            {
+                float reSum = 0f;
+                float imSum = 0f;
+                float* trep = rep + offset, timp = imp + offset;
+                float* endTrep = trep + N;
+
+                for (; trep < endTrep; tcosp += 4, tsinp += 4, trep += 4, timp += 4)
+                {
+                    var cos = Sse3.LoadVector128(tcosp);
+                    var sin = Sse3.LoadVector128(tsinp);
+                    var rev = Sse3.LoadVector128(trep);
+                    var imv = Sse3.LoadVector128(timp);
+
+                    var m1 = Sse3.Multiply(cos, rev);
+                    var m2 = Sse3.Multiply(sin, imv);
+                    var m3 = Sse3.Subtract(m1, m2);
+
+                    Sse3.StoreScalar(sumPointer, m3);
+                    reSum += sum;
+
+                    m1 = Sse3.Multiply(imv, cos);
+                    m2 = Sse3.Multiply(rev, sin);
+                    m3 = Sse3.Add(m1, m2);
+
+                    Sse3.StoreScalar(sumPointer, m3);
+                    imSum += sum;
+                }
+                *torep = reSum;
+                *toimp = imSum;
+            }
+        }
+    }
+
+    private static unsafe void avxIDFT(
+        float[] re, float[] im,
+        float[] oRe, float[] oIm,
+        float[] cosBuffer, float[] sinBuffer,
+        int offset, int N
+    )
+    {
+        fixed (float* 
+            rep = re, imp = im, 
+            orep = oRe, oimp = oIm,
+            cosp = cosBuffer, sinp = sinBuffer
+        )
+        {
+            float* tcosp = cosp, tsinp = sinp;
+            float* torep = orep + offset, toimp = oimp + offset;
+            float* endTorep = torep + N;
+            float sum = 0;
+            float* sumPointer = &sum;
+
+            for (; torep < endTorep; torep++, toimp++)
+            {
+                float reSum = 0f;
+                float imSum = 0f;
+                float* trep = rep + offset, timp = imp + offset;
+                float* endTrep = trep + N;
+
+                for (; trep < endTrep; tcosp += 4, tsinp += 4, trep += 4, timp += 4)
+                {
+                    var cos = Avx2.LoadVector128(tcosp);
+                    var sin = Avx2.LoadVector128(tsinp);
+                    var rev = Avx2.LoadVector128(trep);
+                    var imv = Avx2.LoadVector128(timp);
+
+                    var m1 = Avx2.Multiply(cos, rev);
+                    var m2 = Avx2.Multiply(sin, imv);
+                    var m3 = Avx2.Subtract(m1, m2);
+
+                    Avx2.StoreScalar(sumPointer, m3);
+                    reSum += sum;
+
+                    m1 = Avx2.Multiply(imv, cos);
+                    m2 = Avx2.Multiply(rev, sin);
+                    m3 = Avx2.Add(m1, m2);
+
+                    Avx2.StoreScalar(sumPointer, m3);
+                    imSum += sum;
+                }
+                *torep = reSum;
+                *toimp = imSum;
+            }
+        }
+    }
+
+    private static unsafe void smidIDFT(
+        float[] re, float[] im,
+        float[] oRe, float[] oIm,
+        float[] cosBuffer, float[] sinBuffer,
+        int offset, int N
+    )
+    {
+        fixed (float* 
+            rep = re, imp = im, 
+            orep = oRe, oimp = oIm,
+            cosp = cosBuffer, sinp = sinBuffer
+        )
+        {
+            float* tcosp = cosp, tsinp = sinp;
+            float* torep = orep + offset, toimp = oimp + offset;
+            float* endTorep = torep + N;
+            float* sumPointer = stackalloc float[4];
+
+            for (; torep < endTorep; torep++, toimp++)
+            {
+                float reSum = 0f;
+                float imSum = 0f;
+                float* trep = rep + offset, timp = imp + offset;
+                float* endTrep = trep + N;
+
+                for (; trep < endTrep; tcosp += 4, tsinp += 4, trep += 4, timp += 4)
+                {
+                    var cos = AdvSimd.LoadVector128(tcosp);
+                    var sin = AdvSimd.LoadVector128(tsinp);
+                    var rev = AdvSimd.LoadVector128(trep);
+                    var imv = AdvSimd.LoadVector128(timp);
+
+                    var m1 = AdvSimd.Multiply(cos, rev);
+                    var m2 = AdvSimd.Multiply(sin, imv);
+                    var m3 = AdvSimd.Subtract(m1, m2);
+
+                    AdvSimd.Store(sumPointer, m3);
+                    reSum += sumPointer[3] + sumPointer[2] + sumPointer[1] + sumPointer[0];
+
+                    m1 = AdvSimd.Multiply(imv, cos);
+                    m2 = AdvSimd.Multiply(rev, sin);
+                    m3 = AdvSimd.Add(m1, m2);
+
+                    AdvSimd.Store(sumPointer, m3);
+                    imSum += sumPointer[3] + sumPointer[2] + sumPointer[1] + sumPointer[0];
+                }
+                *torep = reSum;
+                *toimp = imSum;
+            }
+        }
+    }
+
     private static void mergeDFTresults(
         int sectionCount, int div,
         float[] reBuffer, float[] imBuffer,
@@ -557,12 +1009,57 @@ internal static class FourrierTransform
         if (swapCount % 2 == 1)
             swapSignals(reBuffer, reAux, imBuffer, imAux);
     }
+    
+    private static void mergeIDFTresults(
+        int sectionCount, int div,
+        float[] reBuffer, float[] imBuffer,
+        float[] reAux, float[] imAux
+    )
+    {
+        int swapCount = 0;
+        float[] temp;
+        while (sectionCount > 1)
+        {
+            for (int s = 0; s < sectionCount; s += 2)
+            {
+                int start = div * s;
+                int end = start + div;
+                for (int i = start, j = end, k = 0; i < end; i++, j++, k++)
+                {
+                    var param = MathF.Tau * k / (2 * div);
+                    var cos = MathF.Cos(param);
+                    var sin = MathF.Sqrt(1 - cos * cos);
+
+                    float W = reBuffer[j] * cos - imBuffer[j] * sin;
+                    reAux[i] = reBuffer[i] + W;
+                    reAux[j] = reBuffer[i] - W;
+
+                    W = imBuffer[j] * cos + reBuffer[j] * sin;
+                    imAux[i] = imBuffer[i] + W;
+                    imAux[j] = imBuffer[i] - W;
+                }
+            }
+
+            div *= 2;
+            sectionCount /= 2;
+            swapCount++;
+
+            temp = reBuffer;
+            reBuffer = reAux;
+            reAux = temp;
+            
+            temp = imBuffer;
+            imBuffer = imAux;
+            imAux = temp;
+        }
+        
+        if (swapCount % 2 == 1)
+            swapSignals(reBuffer, reAux, imBuffer, imAux);
+    }
 
     private static void swapSignals(
-        float[] reSource,
-        float[] reTarget,
-        float[] imSource,
-        float[] imTarget
+        float[] reSource, float[] reTarget,
+        float[] imSource, float[] imTarget
     )
     {
         copySignal(reSource, reTarget);
@@ -625,17 +1122,17 @@ internal static class FourrierTransform
         return cosArr;
     }
 
-    private static float[] getSinBuffer(float[] cosBuffer)
+    private static float[] getSinBuffer(int N)
     {
         if (sinBuffer != null)
             return sinBuffer;
         
-        var sinArr = new float[cosBuffer.Length];
+        var sinArr = new float[N * N];
 
-        for (int i = 0; i < cosBuffer.Length; i++)
+        for (int j = 0; j < N; j++)
         {
-            var cos = cosBuffer[i];
-            sinArr[i] = MathF.Sqrt(1 - cos * cos);
+            for (int i = 0; i < N; i++)
+                sinArr[i + j * N] = MathF.Sin(MathF.Tau * i * j / N);
         }
 
         sinBuffer = sinArr;
