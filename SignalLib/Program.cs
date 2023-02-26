@@ -1,29 +1,22 @@
 ﻿using System;
 using Signals.Internal;
 
-int N = 64;
+int N = 1024;
 
 float[] signal = new float[N];
 float[] isignal = new float[N];
-signal[1] = 5;
-FourrierTransform.FFT(signal, isignal);
-// (signal, isignal) = FourrierTransform.DFT(signal, isignal);
+
+for (int i = 0; i < N; i++)
+{
+    signal[i] = N * (5 + .5f * (2 * Random.Shared.NextSingle() - 1));
+    isignal[i] = N * (5 + .5f * (2 * Random.Shared.NextSingle() - 1));
+}
 
 FourrierTransform.IFFT(signal, isignal);
-// (signal, isignal) = FourrierTransform.IDFT(signal, isignal);
 
 foreach (var x in signal)
 {
-    var rounded = MathF.Round(x, 4);
-    if (rounded == 0)
-        rounded = 0f;
-    var str = rounded.ToString().Replace(',','.');
-    Console.Write($"{str}, ");
-}
-Console.WriteLine();
-foreach (var x in isignal)
-{
-    var rounded = MathF.Round(x, 4);
+    var rounded = MathF.Round(x, 2);
     if (rounded == 0)
         rounded = 0f;
     var str = rounded.ToString().Replace(',','.');

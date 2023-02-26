@@ -14,64 +14,6 @@ internal static class FourrierTransform
     private static float[] cosBuffer = null;
     private static float[] sinBuffer = null;
 
-    internal static (float[] rsignal, float[] isignal) DFT(
-        float[] reSig, float[] imSig)
-    {
-        if (reSig.Length != imSig.Length)
-            throw new Exception("Real and Imaginary Signal have different sizes");
-        
-        int N = reSig.Length;
-        float[] ouReSig = new float[N];
-        float[] ouImSig = new float[N];
-
-        for (int k = 0; k < N; k++)
-        {
-            float re = 0f;
-            float im = 0f;
-            for (int n = 0; n < N; n++)
-            {
-                var param = MathF.Tau * k * n / N;
-                var cos = MathF.Cos(param);
-                var sin = MathF.Sin(param);
-                re += reSig[n] * cos + imSig[n] * sin;
-                im += imSig[n] * cos - reSig[n] * sin;
-            }
-            ouReSig[k] = re; 
-            ouImSig[k] = im;
-        }
-
-        return (ouReSig, ouImSig);
-    }
-
-        internal static (float[] rsignal, float[] isignal) IDFT(
-        float[] reSig, float[] imSig)
-    {
-        if (reSig.Length != imSig.Length)
-            throw new Exception("Real and Imaginary Signal have different sizes");
-        
-        int N = reSig.Length;
-        float[] ouReSig = new float[N];
-        float[] ouImSig = new float[N];
-
-        for (int k = 0; k < N; k++)
-        {
-            float re = 0f;
-            float im = 0f;
-            for (int n = 0; n < N; n++)
-            {
-                var param = MathF.Tau * k * n / N;
-                var cos = MathF.Cos(param);
-                var sin = MathF.Sin(param);
-                re += reSig[n] * cos - imSig[n] * sin;
-                im += imSig[n] * cos + reSig[n] * sin;
-            }
-            ouReSig[k] = re / N;  
-            ouImSig[k] = im / N;
-        }
-
-        return (ouReSig, ouImSig);
-    }
-    
     internal static float[] RFFT(float[] signal)
     {
         throw new NotImplementedException();
@@ -411,8 +353,7 @@ internal static class FourrierTransform
             float* tcosp = cosp, tsinp = sinp;
             float* torep = orep + offset, toimp = oimp + offset;
             float* endTorep = torep + N;
-            float sum = 0;
-            float* sumPointer = &sum;
+            float* sumPointer = stackalloc float[4];
 
             for (; torep < endTorep; torep++, toimp++)
             {
@@ -432,15 +373,15 @@ internal static class FourrierTransform
                     var m2 = Sse42.Multiply(sin, imv);
                     var m3 = Sse42.Add(m1, m2);
 
-                    Sse42.StoreScalar(sumPointer, m3);
-                    reSum += sum;
+                    Sse42.Store(sumPointer, m3);
+                    reSum += sumPointer[3] + sumPointer[2] + sumPointer[1] + sumPointer[0];
 
                     m1 = Sse42.Multiply(imv, cos);
                     m2 = Sse42.Multiply(rev, sin);
                     m3 = Sse42.Subtract(m1, m2);
 
-                    Sse42.StoreScalar(sumPointer, m3);
-                    imSum += sum;
+                    Sse42.Store(sumPointer, m3);
+                    imSum += sumPointer[3] + sumPointer[2] + sumPointer[1] + sumPointer[0];
                 }
                 *torep = reSum;
                 *toimp = imSum;
@@ -464,8 +405,7 @@ internal static class FourrierTransform
             float* tcosp = cosp, tsinp = sinp;
             float* torep = orep + offset, toimp = oimp + offset;
             float* endTorep = torep + N;
-            float sum = 0;
-            float* sumPointer = &sum;
+            float* sumPointer = stackalloc float[4];
 
             for (; torep < endTorep; torep++, toimp++)
             {
@@ -485,15 +425,15 @@ internal static class FourrierTransform
                     var m2 = Sse41.Multiply(sin, imv);
                     var m3 = Sse41.Add(m1, m2);
 
-                    Sse41.StoreScalar(sumPointer, m3);
-                    reSum += sum;
+                    Sse41.Store(sumPointer, m3);
+                    reSum += sumPointer[3] + sumPointer[2] + sumPointer[1] + sumPointer[0];
 
                     m1 = Sse41.Multiply(imv, cos);
                     m2 = Sse41.Multiply(rev, sin);
                     m3 = Sse41.Subtract(m1, m2);
 
-                    Sse41.StoreScalar(sumPointer, m3);
-                    imSum += sum;
+                    Sse41.Store(sumPointer, m3);
+                    imSum += sumPointer[3] + sumPointer[2] + sumPointer[1] + sumPointer[0];
                 }
                 *torep = reSum;
                 *toimp = imSum;
@@ -517,8 +457,7 @@ internal static class FourrierTransform
             float* tcosp = cosp, tsinp = sinp;
             float* torep = orep + offset, toimp = oimp + offset;
             float* endTorep = torep + N;
-            float sum = 0;
-            float* sumPointer = &sum;
+            float* sumPointer = stackalloc float[4];
 
             for (; torep < endTorep; torep++, toimp++)
             {
@@ -538,15 +477,15 @@ internal static class FourrierTransform
                     var m2 = Sse3.Multiply(sin, imv);
                     var m3 = Sse3.Add(m1, m2);
 
-                    Sse3.StoreScalar(sumPointer, m3);
-                    reSum += sum;
+                    Sse3.Store(sumPointer, m3);
+                    reSum += sumPointer[3] + sumPointer[2] + sumPointer[1] + sumPointer[0];
 
                     m1 = Sse3.Multiply(imv, cos);
                     m2 = Sse3.Multiply(rev, sin);
                     m3 = Sse3.Subtract(m1, m2);
 
-                    Sse3.StoreScalar(sumPointer, m3);
-                    imSum += sum;
+                    Sse3.Store(sumPointer, m3);
+                    imSum += sumPointer[3] + sumPointer[2] + sumPointer[1] + sumPointer[0];
                 }
                 *torep = reSum;
                 *toimp = imSum;
@@ -570,8 +509,7 @@ internal static class FourrierTransform
             float* tcosp = cosp, tsinp = sinp;
             float* torep = orep + offset, toimp = oimp + offset;
             float* endTorep = torep + N;
-            float sum = 0;
-            float* sumPointer = &sum;
+            float* sumPointer = stackalloc float[4];
 
             for (; torep < endTorep; torep++, toimp++)
             {
@@ -591,15 +529,15 @@ internal static class FourrierTransform
                     var m2 = Avx2.Multiply(sin, imv);
                     var m3 = Avx2.Add(m1, m2);
 
-                    Avx2.StoreScalar(sumPointer, m3);
-                    reSum += sum;
+                    Avx2.Store(sumPointer, m3);
+                    reSum += sumPointer[3] + sumPointer[2] + sumPointer[1] + sumPointer[0];
 
                     m1 = Avx2.Multiply(imv, cos);
                     m2 = Avx2.Multiply(rev, sin);
                     m3 = Avx2.Subtract(m1, m2);
 
-                    Avx2.StoreScalar(sumPointer, m3);
-                    imSum += sum;
+                    Avx2.Store(sumPointer, m3);
+                    imSum += sumPointer[3] + sumPointer[2] + sumPointer[1] + sumPointer[0];
                 }
                 *torep = reSum;
                 *toimp = imSum;
@@ -715,8 +653,7 @@ internal static class FourrierTransform
             float* tcosp = cosp, tsinp = sinp;
             float* torep = orep + offset, toimp = oimp + offset;
             float* endTorep = torep + N;
-            float sum = 0;
-            float* sumPointer = &sum;
+            float* sumPointer = stackalloc float[4];
 
             for (; torep < endTorep; torep++, toimp++)
             {
@@ -736,15 +673,15 @@ internal static class FourrierTransform
                     var m2 = Sse42.Multiply(sin, imv);
                     var m3 = Sse42.Subtract(m1, m2);
 
-                    Sse42.StoreScalar(sumPointer, m3);
-                    reSum += sum;
+                    Sse42.Store(sumPointer, m3);
+                    reSum += sumPointer[3] + sumPointer[2] + sumPointer[1] + sumPointer[0];
 
                     m1 = Sse42.Multiply(imv, cos);
                     m2 = Sse42.Multiply(rev, sin);
                     m3 = Sse42.Add(m1, m2);
 
-                    Sse42.StoreScalar(sumPointer, m3);
-                    imSum += sum;
+                    Sse42.Store(sumPointer, m3);
+                    imSum += sumPointer[3] + sumPointer[2] + sumPointer[1] + sumPointer[0];
                 }
                 *torep = reSum;
                 *toimp = imSum;
@@ -768,8 +705,7 @@ internal static class FourrierTransform
             float* tcosp = cosp, tsinp = sinp;
             float* torep = orep + offset, toimp = oimp + offset;
             float* endTorep = torep + N;
-            float sum = 0;
-            float* sumPointer = &sum;
+            float* sumPointer = stackalloc float[4];
 
             for (; torep < endTorep; torep++, toimp++)
             {
@@ -789,15 +725,15 @@ internal static class FourrierTransform
                     var m2 = Sse41.Multiply(sin, imv);
                     var m3 = Sse41.Subtract(m1, m2);
 
-                    Sse41.StoreScalar(sumPointer, m3);
-                    reSum += sum;
+                    Sse41.Store(sumPointer, m3);
+                    reSum += sumPointer[3] + sumPointer[2] + sumPointer[1] + sumPointer[0];
 
                     m1 = Sse41.Multiply(imv, cos);
                     m2 = Sse41.Multiply(rev, sin);
                     m3 = Sse41.Add(m1, m2);
 
-                    Sse41.StoreScalar(sumPointer, m3);
-                    imSum += sum;
+                    Sse41.Store(sumPointer, m3);
+                    imSum += sumPointer[3] + sumPointer[2] + sumPointer[1] + sumPointer[0];
                 }
                 *torep = reSum;
                 *toimp = imSum;
@@ -821,8 +757,7 @@ internal static class FourrierTransform
             float* tcosp = cosp, tsinp = sinp;
             float* torep = orep + offset, toimp = oimp + offset;
             float* endTorep = torep + N;
-            float sum = 0;
-            float* sumPointer = &sum;
+            float* sumPointer = stackalloc float[4];
 
             for (; torep < endTorep; torep++, toimp++)
             {
@@ -842,15 +777,15 @@ internal static class FourrierTransform
                     var m2 = Sse3.Multiply(sin, imv);
                     var m3 = Sse3.Subtract(m1, m2);
 
-                    Sse3.StoreScalar(sumPointer, m3);
-                    reSum += sum;
+                    Sse3.Store(sumPointer, m3);
+                    reSum += sumPointer[3] + sumPointer[2] + sumPointer[1] + sumPointer[0];
 
                     m1 = Sse3.Multiply(imv, cos);
                     m2 = Sse3.Multiply(rev, sin);
                     m3 = Sse3.Add(m1, m2);
 
-                    Sse3.StoreScalar(sumPointer, m3);
-                    imSum += sum;
+                    Sse3.Store(sumPointer, m3);
+                    imSum += sumPointer[3] + sumPointer[2] + sumPointer[1] + sumPointer[0];
                 }
                 *torep = reSum;
                 *toimp = imSum;
@@ -874,8 +809,7 @@ internal static class FourrierTransform
             float* tcosp = cosp, tsinp = sinp;
             float* torep = orep + offset, toimp = oimp + offset;
             float* endTorep = torep + N;
-            float sum = 0;
-            float* sumPointer = &sum;
+            float* sumPointer = stackalloc float[4];
 
             for (; torep < endTorep; torep++, toimp++)
             {
@@ -895,15 +829,15 @@ internal static class FourrierTransform
                     var m2 = Avx2.Multiply(sin, imv);
                     var m3 = Avx2.Subtract(m1, m2);
 
-                    Avx2.StoreScalar(sumPointer, m3);
-                    reSum += sum;
+                    Avx2.Store(sumPointer, m3);
+                    reSum += sumPointer[3] + sumPointer[2] + sumPointer[1] + sumPointer[0];
 
                     m1 = Avx2.Multiply(imv, cos);
                     m2 = Avx2.Multiply(rev, sin);
                     m3 = Avx2.Add(m1, m2);
 
-                    Avx2.StoreScalar(sumPointer, m3);
-                    imSum += sum;
+                    Avx2.Store(sumPointer, m3);
+                    imSum += sumPointer[3] + sumPointer[2] + sumPointer[1] + sumPointer[0];
                 }
                 *torep = reSum;
                 *toimp = imSum;
