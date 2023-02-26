@@ -9,40 +9,51 @@ namespace Signals.Internal;
 internal static class FourrierTransform
 {
     private const int dftThreshold = 32;
+
     private static float[] reAux = null;
     private static float[] imAux = null;
     private static float[] cosBuffer = null;
     private static float[] sinBuffer = null;
 
-    internal static float[] RFFT(float[] signal)
+    internal static void RFFT(float[] real, float[] imaginary)
     {
         throw new NotImplementedException();
     }
 
-    internal static void IFFT(float[] rsignal, float[] isignal)
+    internal static void IRFFT(float[] real, float[] imaginary)
     {
-        if (rsignal.Length != isignal.Length)
-            throw new Exception("Real and Imaginary Signal must have the same size.");
-        
-        if (!testPowerOfTwo(rsignal.Length))
-            throw new Exception("Signals must have a power size of 2.");
-            
-        initAuxBuffers(rsignal.Length);
-
-        ifft(rsignal, reAux, isignal, imAux);
+        throw new NotImplementedException();
     }
 
-    internal static void FFT(float[] rsignal, float[] isignal)
+    internal static void STFFT(float[] real, float[] imaginary)
     {
-        if (rsignal.Length != isignal.Length)
+        throw new NotImplementedException();
+    }
+
+    internal static void IFFT(float[] real, float[] imaginary)
+    {
+        if (real.Length != imaginary.Length)
             throw new Exception("Real and Imaginary Signal must have the same size.");
         
-        if (!testPowerOfTwo(rsignal.Length))
+        if (!testPowerOfTwo(real.Length))
+            throw new Exception("Signals must have a power size of 2.");
+            
+        initAuxBuffers(real.Length);
+
+        ifft(real, reAux, imaginary, imAux);
+    }
+
+    internal static void FFT(float[] real, float[] imaginary)
+    {
+        if (real.Length != imaginary.Length)
+            throw new Exception("Real and Imaginary Signal must have the same size.");
+        
+        if (!testPowerOfTwo(real.Length))
             throw new Exception("Signals must have a power size of 2.");
 
-        initAuxBuffers(rsignal.Length);
+        initAuxBuffers(real.Length);
 
-        fft(rsignal, reAux, isignal, imAux);
+        fft(real, reAux, imaginary, imAux);
     }
 
     private static bool testPowerOfTwo(int N)
