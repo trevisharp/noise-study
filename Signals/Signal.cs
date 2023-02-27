@@ -1,16 +1,20 @@
 using System;
 using System.Buffers;
+using System.Drawing;
 using System.Threading.Tasks;
 
 namespace Signals;
 
 using Internal;
+using Visualization;
+using Visualization.DrawLogics;
 
 public class Signal : IDisposable
 {
     private float[] real;
     private float[] imag;
     private bool disposed = false;
+    private bool needReturn = true;
 
     private Signal(float[] real, float[] imag)
     {
@@ -24,6 +28,22 @@ public class Signal : IDisposable
             return;
         
         Dispose();
+    }
+
+    /// <summary>
+    /// Draw a signal in any plataform
+    /// </summary>
+    /// <param name="g">A class that implements IGraphics
+    /// which indicates how the drawing should be done </param>
+    /// <param name="rect">The rect which indicates where 
+    /// the drawing should be done</param>
+    public void Draw(IGraphics g, RectangleF rect)
+    {
+        SignalDrawParams parameters = rect;
+        parameters.Real = this.real;
+        parameters.Imag = this.imag;
+
+        DrawProvider.Current.SignalDrawLogic.Draw(g, parameters);
     }
 
     /// <summary>
@@ -96,8 +116,8 @@ public class Signal : IDisposable
     /// <returns>The new signal</returns>
     public Signal Clone()
     {
-        float[] realCopy = new float[this.real.Length];
-        float[] imagCopy = new float[this.imag.Length];
+        float[] realCopy = rent(this.real.Length);
+        float[] imagCopy = rent(this.imag.Length);
 
         Buffer.BlockCopy(this.real, 0, realCopy, 0, 4 * this.real.Length);
         Buffer.BlockCopy(this.imag, 0, imagCopy, 0, 4 * this.imag.Length);
@@ -111,6 +131,10 @@ public class Signal : IDisposable
             return;
         
         disposed = true;
+
+        if (!needReturn)
+            return;
+
         pool.Return(this.real);
         pool.Return(this.imag);
     }
@@ -120,7 +144,7 @@ public class Signal : IDisposable
     
     public static implicit operator Signal(Func<int, float> func)
     {
-        float[] real = new float[1024];
+        float[] real = rent(1024);
 
         for (int i = 0; i < 1024; i++)
             real[i] = func(i);
@@ -144,6 +168,12 @@ public class Signal : IDisposable
         
         pool = ArrayPool<float>.Create(1024 * 1024, 1024);
     }
+
+    private static float[] rent(int N)
+    {
+        initPool();
+        return pool.Rent(N);
+    }
     
     /// <summary>
     /// Create a empty signal with all values equals to zero
@@ -157,11 +187,8 @@ public class Signal : IDisposable
                 "The vector size must be bigger than 0"
             );
 
-
-        initPool();
-
-        float[] real = pool.Rent(1024);
-        float[] imag = pool.Rent(1024);
+        float[] real = rent(1024);
+        float[] imag = rent(1024);
 
         return new Signal(real, imag);
     }
@@ -180,7 +207,10 @@ public class Signal : IDisposable
         if (imag == null)
             imag = new float[real.Length];
 
-        return new Signal(real, imag);
+        var newSignal = new Signal(real, imag);
+        newSignal.needReturn = false;
+
+        return newSignal;
     }
 
     /// <summary>
@@ -196,12 +226,12 @@ public class Signal : IDisposable
                 "The vector size must be bigger than 0"
             );
         
-        if (period > 0f)
+        if (period < float.Epsilon)
             throw new InvalidOperationException(
                 "The period must be bigger than 0"
             );
 
-        float[] real = new float[N];
+        float[] real = rent(N);
 
         for (int i = 0; i < N; i++)
         {
@@ -225,13 +255,14 @@ public class Signal : IDisposable
                 "The vector size must be bigger than 0"
             );
         
-        if (period > 0f)
+        if (period < float.Epsilon)
             throw new InvalidOperationException(
                 "The period must be bigger than 0"
             );
 
+        initPool();
         
-        float[] real = new float[N];
+        float[] real = pool.Rent(N);
 
         for (int i = 0; i < N; i++)
         {

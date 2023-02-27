@@ -2,15 +2,15 @@ using System.Drawing;
 using System.Windows.Forms;
 using System.Collections.Generic;
 
-using NoiseStudio;
+using Signals;
 
 List<(RectangleF rect, Signal s)> list = new List<(RectangleF rect, Signal s)>();
-int wind = 0;
 
 ApplicationConfiguration.Initialize();
 
 Bitmap bmp = null;
 Graphics g = null;
+SignalGraphics sg = null;
 
 var form = new Form();
 form.WindowState = FormWindowState.Maximized;
@@ -27,6 +27,10 @@ form.Load += delegate
 {
     bmp = new Bitmap(pb.Width, pb.Height);
     g = Graphics.FromImage(bmp);
+    sg = new SignalGraphics()
+    {
+        Graphics = g
+    };
     g.Clear(Color.White);
     pb.Image = bmp;
     tm.Start();
@@ -44,12 +48,8 @@ tm.Tick += delegate
     g.Clear(Color.White);
     foreach (var x in list)
     {
-        x.s.Draw(new RectangleF(
-            x.rect.X,
-            x.rect.Y + wind,
-            x.rect.Width,
-            x.rect.Height
-        ), g);
+        var signal = x.s;
+        x.s.Draw(sg, x.rect);
     }
     pb.Refresh();
 };
@@ -67,7 +67,14 @@ void add(Signal s)
 
 void load()
 {
-    // var s = Signal.Cos();
-    // add(s);
-    // add(s.Fourrier());
+    var s = Signal.Sin(1024, 8);
+    var r = Signal.Cos(1024, 16);
+    var t = s + r;
+    add(t);
+
+    var fft = t.Clone().FFT();
+    add(fft);
+
+    var original = fft.Clone().IFFT();
+    add(original);
 }
