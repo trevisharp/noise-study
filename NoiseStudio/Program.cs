@@ -67,8 +67,8 @@ void add(Signal s)
 
 void load()
 {
-    var s = Signal.Sin(1024, 8);
-    var r = Signal.Cos(1024, 16);
+    var s = Signal.Sin(4096, 128);
+    var r = Signal.Cos(4096, 16);
     var t = s + r;
     add(t);
 
