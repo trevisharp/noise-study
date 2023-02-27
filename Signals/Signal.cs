@@ -1,5 +1,6 @@
 using System;
 using System.Buffers;
+using System.Threading.Tasks;
 
 namespace Signals;
 
@@ -25,18 +26,74 @@ public class Signal : IDisposable
         Dispose();
     }
 
+    /// <summary>
+    /// Apply Fast Fourier Transform in this signal
+    /// </summary>
+    /// <returns>This signal</returns>
     public Signal FFT()
     {
         FourrierTransform.FFT(this.real, this.imag);
         return this;
     }
     
+    /// <summary>
+    /// Apply Fast Fourier Transform in this signal asynchronously
+    /// </summary>
+    /// <returns>This signal</returns>
+    public async Task<Signal> FFTAsync()
+    {
+        await Task.Run(() => FourrierTransform.FFT(this.real, this.imag));
+        return this;
+    }
+
+    /// <summary>
+    /// Apply Inverse Fast Fourier Transform in this signal
+    /// </summary>
+    /// <returns>This signal</returns>
     public Signal IFFT()
     {
         FourrierTransform.IFFT(this.real, this.imag);
         return this;
     }
 
+    /// <summary>
+    /// Apply Inverse Fast Fourier Transform in this signal
+    /// </summary>
+    /// <returns>This signal</returns>
+    public async Task<Signal> IFFTAsync()
+    {
+        await Task.Run(() => FourrierTransform.IFFT(this.real, this.imag));
+        return this;
+    }
+
+    /// <summary>
+    /// Add other signal in this signal
+    /// </summary>
+    /// <param name="s">The other signal</param>
+    /// <returns>This signal</returns>
+    public Signal Add(Signal s)
+    {
+        SignalOperations.Add(this.real, this.imag, s.real, s.imag);
+        return this;
+    }
+    
+    /// <summary>
+    /// Add other signal in this signal, asynchronously
+    /// </summary>
+    /// <param name="s">The other signal</param>
+    /// <returns>This signal</returns>
+    public async Task<Signal> AddAsync(Signal s)
+    {
+        await Task.Run(() => SignalOperations.Add(
+            this.real, this.imag, s.real, s.imag)
+        );
+        return this;
+    }
+
+    /// <summary>
+    /// Copy this signal to other new signal
+    /// </summary>
+    /// <returns>The new signal</returns>
     public Signal Clone()
     {
         float[] realCopy = new float[this.real.Length];
@@ -73,7 +130,9 @@ public class Signal : IDisposable
 
     public static Signal operator +(Signal s1, Signal s2)
     {
-        
+        var newSignal = s1.Clone();
+        newSignal.Add(s2);
+        return newSignal;
     }
 
     private static ArrayPool<float> pool;
