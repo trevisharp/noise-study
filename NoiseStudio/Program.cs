@@ -67,14 +67,14 @@ void add(Signal s)
 
 void load()
 {
-    var s = Signal.Sin(4096, 128);
-    var r = Signal.Cos(4096, 16);
-    var t = s + r;
+    // var s = Signal.Sin(4096, 128);
+    // var r = Signal.Cos(4096, 16);
+    var t = Signal.GaussianNoise(1024);
     add(t);
 
     var fft = t.Clone().FFT();
     add(fft);
 
-    var original = fft.Clone().IFFT();
+    var original = fft.Clone().Magnitude();
     add(original);
 }

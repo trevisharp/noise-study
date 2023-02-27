@@ -110,6 +110,35 @@ public class Signal : IDisposable
         return this;
     }
 
+    public Signal Magnitude()
+    {
+        for (int i = 0; i < this.real.Length; i++)
+        {
+            var real = this.real[i];
+            var imag = this.imag[i];
+
+            this.imag[i] = 0;
+            this.real[i] = MathF.Sqrt(real * real + imag * imag);
+        }
+
+        return this;
+    }
+
+    public Signal ToSpectrum()
+    {
+        throw new NotImplementedException();
+    }
+
+    public Signal Integrate()
+    {
+        throw new NotImplementedException();
+    }
+
+    public Signal Derivate()
+    {
+        throw new NotImplementedException();
+    }
+
     /// <summary>
     /// Copy this signal to other new signal
     /// </summary>
@@ -230,8 +259,9 @@ public class Signal : IDisposable
             throw new InvalidOperationException(
                 "The period must be bigger than 0"
             );
-
+        
         float[] real = rent(N);
+        float[] imag = rent(N);
 
         for (int i = 0; i < N; i++)
         {
@@ -239,7 +269,7 @@ public class Signal : IDisposable
             real[i] = MathF.Sin(param);
         }
 
-        return real;
+        return new Signal(real, imag);
     }
 
     /// <summary>
@@ -259,15 +289,65 @@ public class Signal : IDisposable
             throw new InvalidOperationException(
                 "The period must be bigger than 0"
             );
-
-        initPool();
         
-        float[] real = pool.Rent(N);
+        float[] real = rent(N);
+        float[] imag = rent(N);
 
         for (int i = 0; i < N; i++)
         {
             var param = MathF.Tau * i / period;
             real[i] = MathF.Cos(param);
+        }
+
+        return new Signal(real, imag);
+    }
+
+    /// <summary>
+    /// Generate a Dirac function, zero for all points excepts in alfa point
+    /// </summary>
+    /// <param name="N">The size of signal</param>
+    /// <param name="alfa">The point where the signal is 1</param>
+    /// <returns>Object of signal</returns>
+    public static Signal Dirac(int N, int alfa)
+    {
+        if (N < 1)
+            throw new InvalidOperationException(
+                "The vector size must be bigger than 0"
+            );
+        
+        if (alfa < 1)
+            throw new InvalidOperationException(
+                "The period must be bigger than 0"
+            );
+        
+        float[] real = rent(N);
+        float[] imag = rent(N);
+        
+        real[alfa] = 1;
+
+        return real;
+    }
+
+    public static Signal GaussianNoise(int N)
+    {
+        if (N < 1)
+            throw new InvalidOperationException(
+                "The vector size must be bigger than 0"
+            );
+        
+        float[] real = rent(N);
+        float[] imag = rent(N);
+
+        byte[] data = new byte[10 * N];
+        Random.Shared.NextBytes(data);
+
+        for (int i = 0; i < N; i++)
+        {
+            float sum = 0;
+            for (int j = 0; j < 10; j++)
+                sum += data[10 * i + j] - 128;
+            sum /= 10 * 128;
+            real[i] = sum;
         }
 
         return real;
