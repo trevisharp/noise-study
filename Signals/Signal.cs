@@ -98,6 +98,17 @@ public class Signal : IDisposable
     }
     
     /// <summary>
+    /// Subtract other signal in this signal
+    /// </summary>
+    /// <param name="s">The other signal</param>
+    /// <returns>This signal</returns>
+    public Signal Sub(Signal s)
+    {
+        SignalOperations.Sub(this.real, this.imag, s.real, s.imag);
+        return this;
+    }
+    
+    /// <summary>
     /// Add other signal in this signal, asynchronously
     /// </summary>
     /// <param name="s">The other signal</param>
@@ -185,6 +196,13 @@ public class Signal : IDisposable
     {
         var newSignal = s1.Clone();
         newSignal.Add(s2);
+        return newSignal;
+    }
+
+    public static Signal operator -(Signal s1, Signal s2)
+    {
+        var newSignal = s1.Clone();
+        newSignal.Sub(s2);
         return newSignal;
     }
 

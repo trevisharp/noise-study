@@ -18,6 +18,15 @@ internal static class SignalOperations
         add(s1Imag, s2Imag);
     }
 
+    internal static void Sub(
+        float[] s1Real, float[] s1Imag,
+        float[] s2Real, float[] s2Imag
+    )
+    {
+        sub(s1Real, s2Real);
+        sub(s1Imag, s2Imag);
+    }
+
     private static void add(float[] source, float[] target)
     {
         if (source == null || target == null)
@@ -30,6 +39,19 @@ internal static class SignalOperations
             addSequential(source, target, len);
         else addParallel(source, target, len);
     }
+    
+    private static void sub(float[] source, float[] target)
+    {
+        if (source == null || target == null)
+            return;
+        
+        int len = source.Length < target.Length 
+            ? source.Length : target.Length;
+        
+        if (len < splitThreshold || Environment.ProcessorCount < 2)
+            subSequential(source, target, len);
+        else subParallel(source, target, len);
+    }
 
     private static void addSequential(float[] source, float[] target, int len)
     {
@@ -37,11 +59,25 @@ internal static class SignalOperations
             add(source, target, i * splitThreshold, splitThreshold);
     }
 
+    private static void subSequential(float[] source, float[] target, int len)
+    {
+        for (int i = 0; i < len; i += splitThreshold)
+            sub(source, target, i * splitThreshold, splitThreshold);
+    }
+
     private static void addParallel(float[] source, float[] target, int len)
     {
         Parallel.For(0, len / splitThreshold, i =>
         {
             add(source, target, i * splitThreshold, splitThreshold);
+        });
+    }
+
+    private static void subParallel(float[] source, float[] target, int len)
+    {
+        Parallel.For(0, len / splitThreshold, i =>
+        {
+            sub(source, target, i * splitThreshold, splitThreshold);
         });
     }
 
@@ -64,6 +100,27 @@ internal static class SignalOperations
         else if (Sse3.IsSupported)
             sse3Add(source, target, offset, len);
         else slowAdd(source, target, offset, len);
+    }
+
+    private static void sub(float[] source, float[] target, int offset, int len)
+    {
+        if (offset + len > source.Length)
+            len = source.Length - offset;
+        
+        if (offset + len > target.Length)
+            len = target.Length - offset;
+        
+        if (AdvSimd.IsSupported)
+            smidSub(source, target, offset, len);
+        else if (Sse42.IsSupported)
+            sse42Sub(source, target, offset, len);
+        else if (Sse41.IsSupported)
+            sse41Sub(source, target, offset, len);
+        else if (Avx2.IsSupported)
+            avxSub(source, target, offset, len);
+        else if (Sse3.IsSupported)
+            sse3Sub(source, target, offset, len);
+        else slowSub(source, target, offset, len);
     }
 
     private static unsafe void sse42Add(
@@ -196,6 +253,139 @@ internal static class SignalOperations
             var end = sp + len;
             for (; sp < end; sp++, tp++)
                 *sp += *tp;
+        }
+    }
+
+        private static unsafe void sse42Sub(
+        float[] source, float[] target, 
+        int offset, int len
+    )
+    {
+        fixed (float* 
+            sourcePointer = source,
+            targetPointer = target
+        )
+        {
+            var sp = sourcePointer + offset;
+            var tp = targetPointer + offset;
+            var end = sp + len;
+            for (; sp < end; sp += 4, tp += 4)
+            {
+                var sv = Sse42.LoadVector128(sp);
+                var tv = Sse42.LoadVector128(tp);
+                var result = Sse42.Subtract(sv, tv);
+                Sse42.Store(sp, result);
+            }
+        }
+    }
+
+    private static unsafe void sse41Sub(
+        float[] source, float[] target, 
+        int offset, int len
+    )
+    {
+        fixed (float* 
+            sourcePointer = source,
+            targetPointer = target
+        )
+        {
+            var sp = sourcePointer + offset;
+            var tp = targetPointer + offset;
+            var end = sp + len;
+            for (; sp < end; sp += 4, tp += 4)
+            {
+                var sv = Sse41.LoadVector128(sp);
+                var tv = Sse41.LoadVector128(tp);
+                var result = Sse41.Subtract(sv, tv);
+                Sse41.Store(sp, result);
+            }
+        }
+    }
+
+    private static unsafe void sse3Sub(
+        float[] source, float[] target,
+        int offset, int len
+    )
+    {
+        fixed (float* 
+            sourcePointer = source,
+            targetPointer = target
+        )
+        {
+            var sp = sourcePointer + offset;
+            var tp = targetPointer + offset;
+            var end = sp + len;
+            for (; sp < end; sp += 4, tp += 4)
+            {
+                var sv = Ssse3.LoadVector128(sp);
+                var tv = Ssse3.LoadVector128(tp);
+                var result = Ssse3.Subtract(sv, tv);
+                Ssse3.Store(sp, result);
+            }
+        }
+    }
+
+    private static unsafe void avxSub(
+        float[] source, float[] target,
+        int offset, int len
+    )
+    {
+        fixed (float* 
+            sourcePointer = source,
+            targetPointer = target
+        )
+        {
+            var sp = sourcePointer + offset;
+            var tp = targetPointer + offset;
+            var end = sp + len;
+            for (; sp < end; sp += 4, tp += 4)
+            {
+                var sv = Avx2.LoadVector128(sp);
+                var tv = Avx2.LoadVector128(tp);
+                var result = Avx2.Subtract(sv, tv);
+                Avx2.Store(sp, result);
+            }
+        }
+    }
+
+    private static unsafe void smidSub(
+        float[] source, float[] target,
+        int offset, int len
+    )
+    {
+        fixed (float* 
+            sourcePointer = source,
+            targetPointer = target
+        )
+        {
+            var sp = sourcePointer + offset;
+            var tp = targetPointer + offset;
+            var end = sp + len;
+            for (; sp < end; sp += 4, tp += 4)
+            {
+                var sv = AdvSimd.LoadVector128(sp);
+                var tv = AdvSimd.LoadVector128(tp);
+                var result = AdvSimd.Subtract(sv, tv);
+                AdvSimd.Store(sp, result);
+            }
+        }
+    }
+    
+    private static unsafe void slowSub(
+        float[] source, float[] target,
+        int offset, int len
+    )
+    {
+        fixed (float* 
+            sourcePointer = source,
+            targetPointer = target
+        )
+        {
+            var sp = sourcePointer + offset;
+            var tp = targetPointer + offset;
+            var end = sp + len;
+            for (; sp < end; sp++, tp++)
+                *sp -= *tp;
         }
     }
 }
