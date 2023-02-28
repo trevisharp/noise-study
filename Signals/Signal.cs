@@ -166,6 +166,10 @@ public class Signal : IDisposable
         );
     }
 
+    /// <summary>
+    /// Integrate the signal
+    /// </summary>
+    /// <returns>This signal</returns>
     public Signal Integrate()
     {
         SignalOperations.Integrate(this.real, this.imag);
