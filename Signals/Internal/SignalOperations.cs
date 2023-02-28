@@ -27,6 +27,14 @@ internal static class SignalOperations
         sub(s1Imag, s2Imag);
     }
 
+    internal static void Integrate(
+        float[] real, float[] imag
+    )
+    {
+        integrate(real);
+        integrate(imag);
+    }
+
     private static void add(float[] source, float[] target)
     {
         if (source == null || target == null)
@@ -386,6 +394,44 @@ internal static class SignalOperations
             var end = sp + len;
             for (; sp < end; sp++, tp++)
                 *sp -= *tp;
+        }
+    }
+
+    private static unsafe void integrate(float[] data)
+    {
+        var temp = stackalloc float[3];
+        fixed (float* sg = data)
+        {
+            float* p = sg;
+            float* end = p + data.Length;
+
+            int i = 2;
+            temp[0] = (data[0] + 4 * data[1] + data[2]) / 3f;
+            temp[1] = (data[1] + 4 * data[2] + data[3]) / 3f;
+            p += 2;
+
+            for (; p < end - 2; p++)
+            {
+                float fa = *p;
+
+                float fm = *(p+1);
+
+                float fb = *(p+2);
+
+                temp[i] = (fa + 4 * fm + fb) / 3f;
+                i = (i + 1) % 3;
+
+                *p = temp[i] + *(p - 1);
+            }
+
+            i = (i + 1) % 3;
+            *(end - 2) = temp[i] + *(end - 3);
+
+            i = (i + 1) % 3;
+            *(end - 1) = temp[i] + *(end - 2);
+            
+            i = (i + 1) % 3;
+            *end = temp[i] + *(end - 1);
         }
     }
 }

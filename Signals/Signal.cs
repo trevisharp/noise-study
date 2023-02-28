@@ -137,12 +137,39 @@ public class Signal : IDisposable
 
     public Signal ToSpectrum()
     {
-        throw new NotImplementedException();
+        float[] newReal = new float[512];
+        float[] newImag = new float[512];
+
+        float lastX = 0;
+        float lastY = 0;
+        for (int i = 0; i < this.real.Length; i++)
+        {
+            var real = this.real[i];
+            var imag = this.imag[i];
+
+            var x = 100 * MathF.Log10(i + 1);
+            var y = 10 * MathF.Log10(real * real + imag * imag) / 2;
+
+            for (int _x = (int)lastX; _x < x; _x++)
+            {
+                newReal[(int)_x] = (y - lastY) * (_x - lastX) / (x + 1 - lastX) + lastY;
+                if (newReal[(int)_x] == float.NaN)
+                    newReal[(int)_x] = newReal[(int)(_x - 1)];
+            }
+            lastX = (int)x;
+            lastY = y;
+        }
+
+        return new Signal(
+            newReal, 
+            newImag
+        );
     }
 
     public Signal Integrate()
     {
-        throw new NotImplementedException();
+        SignalOperations.Integrate(this.real, this.imag);
+        return this;
     }
 
     public Signal Derivate()

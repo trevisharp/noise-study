@@ -67,14 +67,17 @@ void add(Signal s)
 
 void load()
 {
-    // var s = Signal.Sin(4096, 128);
-    // var r = Signal.Cos(4096, 16);
-    var t = Signal.GaussianNoise(1024);
-    add(t);
+    var dirac = Signal.Dirac(1024, 256);
+    add(dirac);
 
-    var fft = t.Clone().FFT();
-    add(fft);
 
-    var original = fft.Clone().Magnitude();
-    add(original);
+    var heavsid = dirac
+        .Clone()
+        .Integrate();
+    add(heavsid);
+    
+    var heavsidFFT = heavsid
+        .Clone()
+        .FFT();
+    add(heavsidFFT);
 }
