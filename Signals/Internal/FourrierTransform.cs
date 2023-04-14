@@ -9,11 +9,15 @@ namespace Signals.Internal;
 internal static class FourrierTransform
 {
     private const int dftThreshold = 32;
+    private const int sampleSize = 1024;
+    private const int halfSampleSize = sampleSize / 2;
 
     private static float[] reAux = null;
     private static float[] imAux = null;
     private static float[] cosBuffer = null;
     private static float[] sinBuffer = null;
+    private static float[] cosSamples = null;
+    private static float[] sinSamples = null;
 
     internal static void RFFT(float[] real, float[] imaginary)
     {
@@ -131,7 +135,8 @@ internal static class FourrierTransform
 
         var cosBuffer = getCosBuffer(dftThreshold);
         var sinBuffer = getSinBuffer(dftThreshold);
-
+        generateSamples();
+        
         evenOddFragmentation(N, dftThreshold, sectionCount, reBuffer, imBuffer, reAux, imAux);
 
         fracDFT(reAux, imAux, reBuffer, imBuffer, cosBuffer, sinBuffer, sectionCount);
@@ -908,7 +913,7 @@ internal static class FourrierTransform
         }
     }
 
-    private static void mergeDFTresults(
+    private static unsafe void mergeDFTresults(
         int sectionCount, int div,
         float[] reBuffer, float[] imBuffer,
         float[] reAux, float[] imAux
@@ -916,41 +921,59 @@ internal static class FourrierTransform
     {
         int swapCount = 0;
         float[] temp;
-        while (sectionCount > 1)
+        float cos, sin;
+
+        fixed (float* 
+            reBufPointer = reBuffer, 
+            reAuxPointer = reAux, 
+            imBufPointer = imBuffer, 
+            imAuxPointer = imAux
+        )
         {
-            for (int s = 0; s < sectionCount; s += 2)
+            float* rbp = reBufPointer;
+            float* rap = reAuxPointer;
+            float* ibp = reBufPointer;
+            float* iap = imAuxPointer;
+            while (sectionCount > 1)
             {
-                int start = div * s;
-                int end = start + div;
-                for (int i = start, j = end, k = 0; i < end; i++, j++, k++)
+                for (int s = 0; s < sectionCount; s += 2)
                 {
-                    var param = MathF.Tau * k / (2 * div);
-                    var cos = MathF.Cos(param);
-                    var sin = MathF.Sqrt(1 - cos * cos);
+                    int start = div * s;
+                    int end = start + div;
+                    for (int i = start, j = end, k = 0; i < end; i++, j++, k++)
+                    {
+                        var param = MathF.Tau * k / (2 * div);
+                        trigo(param, out cos, out sin);
 
-                    float W = reBuffer[j] * cos + imBuffer[j] * sin;
-                    reAux[i] = reBuffer[i] + W;
-                    reAux[j] = reBuffer[i] - W;
+                        float rbpj = *(rbp + j);
+                        float ibpj = *(ibp + j);
+                        float rbpi = *(rbp + i);
+                        float ibpi = *(rbp + i);
 
-                    W = imBuffer[j] * cos - reBuffer[j] * sin;
-                    imAux[i] = imBuffer[i] + W;
-                    imAux[j] = imBuffer[i] - W;
+                        float W = rbpj * cos + ibpj * sin;
+                        *(rap + i) = rbpi + W;
+                        *(rap + j) = rbpi - W;
+
+                        W = ibpj * cos - rbpj * sin;
+                        *(iap + i) = ibpi + W;
+                        *(iap + j) = ibpi - W;
+                    }
                 }
+
+                div *= 2;
+                sectionCount /= 2;
+                swapCount++;
+
+                temp = reBuffer;
+                reBuffer = reAux;
+                reAux = temp;
+                
+                temp = imBuffer;
+                imBuffer = imAux;
+                imAux = temp;
             }
-
-            div *= 2;
-            sectionCount /= 2;
-            swapCount++;
-
-            temp = reBuffer;
-            reBuffer = reAux;
-            reAux = temp;
-            
-            temp = imBuffer;
-            imBuffer = imAux;
-            imAux = temp;
         }
-        
+
         if (swapCount % 2 == 1)
             swapSignals(reBuffer, reAux, imBuffer, imAux);
     }
@@ -1082,5 +1105,31 @@ internal static class FourrierTransform
 
         sinBuffer = sinArr;
         return sinArr;
+    }
+
+    private static void generateSamples()
+    {
+        if (sinSamples is not null)
+            return;
+        
+        sinSamples = new float[sampleSize];
+        cosSamples = new float[sampleSize];
+
+        for (int i = 0; i < sampleSize; i++)
+        {
+            var cos = MathF.Cos(MathF.Tau * (i - halfSampleSize) / halfSampleSize);
+            cosSamples[i] = cos;
+            sinSamples[i] = MathF.Sqrt(1 - cos * cos);
+        }
+    }
+
+    private static void trigo(float x, out float sin, out float cos)
+    {
+        float fraction = x / MathF.Tau;
+        int index = (int)(halfSampleSize * fraction);
+        index %= halfSampleSize;
+        index += halfSampleSize;
+        sin = sinSamples[index];
+        cos = cosSamples[index];
     }
 }

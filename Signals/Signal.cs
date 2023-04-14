@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 using System.Buffers;
 using System.Drawing;
 using System.Threading.Tasks;
@@ -28,6 +29,18 @@ public class Signal : IDisposable
             return;
         
         Dispose();
+    }
+
+    public override string ToString()
+    {
+        StringBuilder sb = new StringBuilder();
+
+        sb.Append("[");
+        for (int i = 0; i < real.Length; i++)
+            sb.Append($"{real[i]} + i{imag[i]}, ");
+        sb.Append("]");
+
+        return sb.ToString();
     }
 
     /// <summary>
